@@ -53,10 +53,10 @@ Compare to another denoising method. Use a measure of success to show which meth
 % % subplot(1,3,1);imshow(img50);title('Noisy Frame 50');
 % % subplot(1,3,2);imshow(img50Denoise3);title('Erosion Denoised Frame 50');
 % % subplot(1,3,3);imshow(img50Denoise2);title('Wiener Filter Denoised Frame 50');
-
-
-
-
+% % 
+% % 
+% % 
+% % 
 % % 
 % % img100 = imread('frame100.jpg');
 % % img100 = rgb2gray(img100);
@@ -85,8 +85,7 @@ Also, show detections (if any) in frames 20, 30, 40, 50 and 60.
 
 pixel size: 0.9 µm × 0.9 µm 
 The diameter of soma of a neuron range from 3 µm to 18 µm.
-In this dataset: When a neuron is fully activated, the diameter could be up
-to ~ 30 pixels. 
+In this dataset: When a neuron is fully activated, the diameter could be up to ~ 30 pixels. 
 
 So 4-30 pixels is considered as neuron activation size.
 
@@ -98,42 +97,112 @@ So 4-30 pixels is considered as neuron activation size.
 %}
 
 
-F0 = 50;
+F0 = 55;
 delta_F = 1.2*F0;
-centersPrevFrame = [0,0];
+centersPrevFrame = zeros(1,2);
+centersPrevPrevFrame = zeros(1,2);
 num_of_circles = 0;
+centersSum = {};
+radiiSum = {};
 
 
 for i = 1:500
     fileName = strcat('frame', num2str(i), '.jpg');
     img = rgb2gray(imread(sprintf('frame%d.jpg',i)));
+%     se = strel('disk',1);
+%     imgDenoised = imerode(img,se); % erode
+    
 
 %%% step 1) %%%
     img(img<delta_F) = 0;
     img(img>=delta_F) = 255;
+%     figure; imagesc(img); colormap gray;
 
 %%% step 2) & 3) %%%
-    [centers,radii] = imfindcircles(img,[5 30],'Sensitivity',0.8);
-    if isempty(centers)
-        centers = [0,0];
-    else
-% %         figure; imshow(img);
-% %         h = viscircles(centers,radii);
-        dist = sqrt((centers(1,1) - centersPrevFrame(1,1))^2 + ((centers(1,2) - centersPrevFrame(1,2))^2));
-        if find(abs(dist) > 2)
-            num_of_circles = num_of_circles + size(centers,1);
-            centersPrevFrame = centers;
+    [centers,radii] = imfindcircles(img,[5 30],'Sensitivity',0.86);
+    if ~isempty(centers)
+%         figure; imshow(img);
+%         h = viscircles(centers,radii);
+        for n = 1:size(centers,1)
+            dist1 = sqrt((centers(n,1) - centersPrevFrame(:,1)).^2 + ((centers(n,2) - centersPrevFrame(:,2)).^2)); % distance to centers in the previous frame
+            dist2 = sqrt((centers(n,1) - centersPrevPrevFrame(:,1)).^2 + ((centers(n,2) - centersPrevPrevFrame(:,2)).^2)); % distance to centers in the previous previous frame
+            flag = 0;
+            for p = 1:size(dist1)
+                if find(abs(dist1(p)) < 2)
+                    flag = 1;
+                    break
+                end
+            end
+            if flag == 0
+                for q = 1:size(dist2)
+                    if find(abs(dist2(q)) < 2)
+                        break
+                    end
+                end
+                num_of_circles = num_of_circles + 1;
+                centersSum{end+1} = centers(n,:);
+                radiiSum{end+1} = radii(n,:);
+            end  
+        end
+        centersPrevPrevFrame = centersPrevFrame;
+        centersPrevFrame = centers;
+    end
+% %     if ismember(i,[20 30 40 50 60])
+% %         if isequal(centers, [0,0])
+% %             figure; imshow(img); title(['Frame',num2str(i)]);
+% %         else
+% %             figure; imshow(img); title(['Frame',num2str(i)]);
+% %             h = viscircles(centers,radii);
+% %         end
+% %     end
+end
+
+
+
+%% Q5
+
+imgSum = zeros(512,512);
+figure; imshow(imgSum);
+hold on
+
+% plot circles
+for k = 1:num_of_circles
+    centerK = centersSum{k};
+    radiiK = radiiSum{k};
+    theta = 0 : (2 * pi / 10000) : (2 * pi);
+    pline_x = radiiK * cos(theta) + centerK(1);
+    pline_y = radiiK * sin(theta) + centerK(2);
+    plot(pline_x, pline_y, '-');
+end
+
+
+% count circles and display numbers
+countSum{1,1} = centersSum{1}; % countSum - a cell to record the centers and count for all firing events
+countSum{1,2} = 1;
+for m = 2:num_of_circles
+    flagS = 0;
+    for s = 1:size(countSum,1)
+        dist = sqrt((centersSum{m}(1) - countSum{s}(1)).^2 + (centersSum{m}(2) - countSum{s}(2)).^2);
+        if dist <= 5
+            countSum{s,2} = countSum{s,2} + 1;
+            flagS = 1;
+            break
         end
     end
-    if ismember(i,[20 30 40 50 60])
-        if isequal(centers, [0,0])
-            figure; imshow(img); title(['Frame',num2str(i)]);
-        else
-            figure; imshow(img); title(['Frame',num2str(i)]);
-            h = viscircles(centers,radii);
-        end
+    
+    if flagS == 0
+        countSum{s+1,1} = centersSum{m};
+        countSum{s+1,2} = 1;
     end
 end
+        
+
+for t = 1:size(countSum,1)
+    num = num2str(countSum{t,2});
+    str = strcat('\leftarrow',num);
+    text(countSum{t,1}(1)+8,countSum{t,1}(2),str,'Color','red','FontSize',14)
+end
+hold off
 
 
 
