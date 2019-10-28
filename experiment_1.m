@@ -83,8 +83,8 @@ This spike is called delta_F and we often measure delta_F/F0.
 Report how many firing events occurred in the movie. 
 Also, show detections (if any) in frames 20, 30, 40, 50 and 60.
 
-pixel size: 0.9 µm × 0.9 µm 
-The diameter of soma of a neuron range from 3 µm to 18 µm.
+pixel size: 0.9 Âµm Ã— 0.9 Âµm 
+The diameter of soma of a neuron range from 3 Âµm to 18 Âµm.
 In this dataset: When a neuron is fully activated, the diameter could be up to ~ 30 pixels. 
 
 So 4-30 pixels is considered as neuron activation size.
@@ -104,6 +104,7 @@ centersPrevPrevFrame = zeros(1,2);
 num_of_circles = 0;
 centersSum = {};
 radiiSum = {};
+is = [];
 
 
 for i = 1:500
@@ -142,6 +143,7 @@ for i = 1:500
                 num_of_circles = num_of_circles + 1;
                 centersSum{end+1} = centers(n,:);
                 radiiSum{end+1} = radii(n,:);
+                is = [is i];
             end  
         end
         centersPrevPrevFrame = centersPrevFrame;
@@ -157,7 +159,27 @@ for i = 1:500
 % %     end
 end
 
+%% Q4
 
+value = 0;
+values = [];
+for j = 1:length(is)
+    i = is(j);
+    img = rgb2gray(imread(sprintf('frame%d.jpg',i)));
+    value = double(img(uint16(centersSum{j}(2)),uint16(centersSum{j}(1))))...
+        + double(img(uint16(centersSum{j}(2)) - 1,uint16(centersSum{j}(1)) - 1))...
+        + double(img(uint16(centersSum{j}(2)) + 1,uint16(centersSum{j}(1)) - 1))...
+        + double(img(uint16(centersSum{j}(2)) - 1,uint16(centersSum{j}(1)) + 1))...
+        + double(img(uint16(centersSum{j}(2)) + 1,uint16(centersSum{j}(1)) + 1));
+    value = value/5.0;
+    value = (value - F0)/F0;
+    values = [values value];
+end
+values(values<0) = 0;
+histogram(values,10);
+xlabel("delF/F0");
+ylabel("counts");
+title("Histogram of relative intensities over firing events");
 
 %% Q5
 
